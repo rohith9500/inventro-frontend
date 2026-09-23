@@ -4,12 +4,15 @@ import './App.css'
 function App() {
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({ name: '', category: 'Electronics', price: '', quantity: '' });
-  const [editingId, setEditingId] = useState(null); // Edit pandrathukku ID track panna
+  const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
+
+  // Inga unga Render backend live URL set pannirukku
+  const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/products');
+      const res = await fetch(API_URL);
       const data = await res.json();
       setProducts(data);
     } catch (error) {
@@ -29,16 +32,14 @@ function App() {
     e.preventDefault();
     try {
       if (editingId) {
-        // Edit / Update Request
-        await fetch(`http://localhost:5000/api/products/${editingId}`, {
+        await fetch(`${API_URL}/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
         setEditingId(null);
       } else {
-        // Add New Request
-        await fetch('http://localhost:5000/api/products', {
+        await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -51,7 +52,6 @@ function App() {
     }
   };
 
-  // Edit button-a click pannumna form-la values varum
   const handleEdit = (product) => {
     setEditingId(product._id);
     setFormData({
@@ -64,7 +64,7 @@ function App() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/products/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
       fetchProducts();
     } catch (error) {
       console.error("Error deleting product: ", error);
