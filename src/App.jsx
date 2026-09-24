@@ -3,12 +3,15 @@ import './App.css'
 
 function App() {
   const [products, setProducts] = useState([]);
-  const [formData, setFormData] = useState({ name: '', category: 'Electronics', price: '', quantity: '' });
+  const [formData, setFormData] = useState({ name: '', price: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [reduceInputs, setReduceInputs] = useState({});
+  
+  // Modal state for Manage Stock
+  const [activeModalProductId, setActiveModalProductId] = useState(null);
+  const [reduceData, setReduceData] = useState({ qty: '', buyer: '' });
 
   const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
 
@@ -47,7 +50,7 @@ function App() {
           body: JSON.stringify(formData)
         });
       }
-      setFormData({ name: '', category: 'Electronics', price: '', quantity: '' });
+      setFormData({ name: '', price: '', quantity: '' });
       fetchProducts();
     } catch (error) {
       console.error("Error saving product: ", error);
@@ -58,7 +61,6 @@ function App() {
     setEditingId(product._id);
     setFormData({
       name: product.name,
-      category: product.category,
       price: product.price,
       quantity: product.quantity
     });
@@ -73,13 +75,22 @@ function App() {
     }
   };
 
+  // Open Modal
+  const openManageModal = (productId) => {
+    setActiveModalProductId(productId);
+    setReduceData({ qty: '', buyer: '' });
+  };
+
+  // Close Modal
+  const closeManageModal = () => {
+    setActiveModalProductId(null);
+    setReduceData({ qty: '', buyer: '' });
+  };
+
+  // Handle stock reduction inside modal
   const handleReduceStock = async (e, id) => {
     e.preventDefault();
-    const productInputs = reduceInputs[id] || {};
-    const reduceQty = productInputs.qty;
-    const buyerName = productInputs.buyer;
-
-    if (!reduceQty || !buyerName) {
+    if (!reduceData.qty || !reduceData.buyer) {
       alert("Please enter both quantity and buyer name!");
       return;
     }
@@ -88,7 +99,7 @@ function App() {
       const res = await fetch(`${API_URL}/${id}/reduce`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reduceQty, buyerName })
+        body: JSON.stringify({ reduceQty: reduceData.qty, buyerName: reduceData.buyer })
       });
       
       const data = await res.json();
@@ -97,25 +108,12 @@ function App() {
         return;
       }
 
-      setReduceInputs({
-        ...reduceInputs,
-        [id]: { qty: '', buyer: '' }
-      });
-
+      setReduceData({ qty: '', buyer: '' });
       fetchProducts();
+      // Keep modal open to view updated history or close if preferred
     } catch (error) {
       console.error("Error reducing stock:", error);
     }
-  };
-
-  const handleReduceInputChange = (id, field, value) => {
-    setReduceInputs({
-      ...reduceInputs,
-      [id]: {
-        ...(reduceInputs[id] || { qty: '', buyer: '' }),
-        [field]: value
-      }
-    });
   };
 
   const filteredProducts = products.filter(product =>
@@ -124,6 +122,9 @@ function App() {
 
   const totalProductsCount = products.length;
   const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
+
+  // Find currently selected product for modal view
+  const activeProduct = products.find(p => p._id === activeModalProductId);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
@@ -143,7 +144,7 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
           <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
@@ -153,23 +154,16 @@ function App() {
           {activeTab === 'products' ? (
             <div className="space-y-6">
               
-              {/* Add / Edit Product Form */}
+              {/* Add / Edit Product Form (Category Removed) */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <input type="text" name="name" placeholder="Product Name" value={formData.name} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
-                  <select name="category" value={formData.category} onChange={handleChange} className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-white">
-                    <option value="Electronics">Electronics</option>
-                    <option value="Clothing">Clothing</option>
-                    <option value="Hardware">Hardware</option>
-                    <option value="Food">Food</option>
-                    <option value="Other">Other</option>
-                  </select>
                   <input type="number" name="price" placeholder="Price (₹)" value={formData.price} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
                   <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
-                  <button type="submit" className={`md:col-span-4 text-white py-2.5 rounded-lg font-medium transition-colors mt-2 ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                  <button type="submit" className={`md:col-span-3 text-white py-2.5 rounded-lg font-medium transition-colors mt-2 ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                     {editingId ? 'Update Product' : '+ Save Product'}
                   </button>
                 </form>
@@ -186,73 +180,43 @@ function App() {
                 />
               </div>
 
-              {/* Products Table */}
+              {/* Products Table (Clean & Non-congested) */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="uppercase tracking-wider border-b-2 border-gray-100 text-gray-500 bg-gray-50">
                       <tr>
                         <th className="px-6 py-4">Product Name</th>
-                        <th className="px-6 py-4">Category</th>
                         <th className="px-6 py-4 text-right">Price</th>
                         <th className="px-6 py-4 text-center">Stock</th>
-                        <th className="px-6 py-4 text-center">Stock Reduce & History</th>
+                        <th className="px-6 py-4 text-center">Stock Management</th>
                         <th className="px-6 py-4 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredProducts.map(product => {
-                        const pInput = reduceInputs[product._id] || { qty: '', buyer: '' };
                         return (
-                          <tr key={product._id} className="hover:bg-gray-50 transition-colors align-top">
+                          <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
-                            <td className="px-6 py-4"><span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">{product.category}</span></td>
                             <td className="px-6 py-4 text-right font-medium">₹{product.price}</td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-md text-xs font-bold ${product.quantity <= 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                 {product.quantity}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              <form onSubmit={(e) => handleReduceStock(e, product._id)} className="flex flex-col space-y-2">
-                                <div className="flex space-x-2">
-                                  <input 
-                                    type="number" 
-                                    placeholder="Qty" 
-                                    value={pInput.qty}
-                                    onChange={(e) => handleReduceInputChange(product._id, 'qty', e.target.value)}
-                                    className="border border-gray-300 p-1.5 rounded w-20 text-xs outline-none"
-                                  />
-                                  <input 
-                                    type="text" 
-                                    placeholder="Buyer Name" 
-                                    value={pInput.buyer}
-                                    onChange={(e) => handleReduceInputChange(product._id, 'buyer', e.target.value)}
-                                    className="border border-gray-300 p-1.5 rounded w-28 text-xs outline-none"
-                                  />
-                                  <button type="submit" className="bg-emerald-600 text-white px-2.5 py-1.5 rounded text-xs font-medium hover:bg-emerald-700">
-                                    Minus
-                                  </button>
-                                </div>
-                              </form>
-
-                              {product.history && product.history.length > 0 && (
-                                <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-200 max-h-28 overflow-y-auto">
-                                  <span className="font-bold text-gray-600 block mb-1">History:</span>
-                                  {product.history.map((h, idx) => (
-                                    <div key={idx} className="text-gray-600 mb-1 border-b border-gray-100 pb-1">
-                                      -{h.quantityReduced} by <span className="font-semibold">{h.buyerName}</span>
-                                      <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            <td className="px-6 py-4 text-center">
+                              <button 
+                                onClick={() => openManageModal(product._id)}
+                                className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-md hover:bg-emerald-600 hover:text-white transition-colors font-medium text-xs"
+                              >
+                                📊 Manage Stock
+                              </button>
                             </td>
                             <td className="px-6 py-4 text-center space-x-2">
-                              <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium">
+                              <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium text-xs">
                                 Edit
                               </button>
-                              <button onClick={() => handleDelete(product._id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium">
+                              <button onClick={() => handleDelete(product._id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium text-xs">
                                 Delete
                               </button>
                             </td>
@@ -261,7 +225,7 @@ function App() {
                       })}
                       {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                             No products found.
                           </td>
                         </tr>
@@ -296,6 +260,79 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Manage Stock Popup Modal */}
+        {activeModalProductId && activeProduct && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+                <h3 className="font-bold text-lg">Manage Stock: {activeProduct.name}</h3>
+                <button onClick={closeManageModal} className="text-gray-400 hover:text-white text-xl font-bold">×</button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                  <span className="text-sm text-gray-600 font-medium">Current Stock Quantity:</span>
+                  <span className="font-bold text-lg text-indigo-600">{activeProduct.quantity}</span>
+                </div>
+
+                {/* Reduce Stock Form inside Modal */}
+                <form onSubmit={(e) => handleReduceStock(e, activeProduct._id)} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Quantity to Reduce</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 5" 
+                      value={reduceData.qty}
+                      onChange={(e) => setReduceData({ ...reduceData, qty: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Buyer Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Rahul" 
+                      value={reduceData.buyer}
+                      onChange={(e) => setReduceData({ ...reduceData, buyer: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-colors">
+                    Confirm & Reduce Stock
+                  </button>
+                </form>
+
+                {/* History Logs View inside Modal */}
+                <div className="mt-4">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-2">Stock History Logs</h4>
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-40 overflow-y-auto space-y-2">
+                    {activeProduct.history && activeProduct.history.length > 0 ? (
+                      activeProduct.history.map((h, idx) => (
+                        <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0">
+                          <span className="text-red-600 font-bold">-{h.quantityReduced} units</span> sold to <span className="font-semibold">{h.buyerName}</span>
+                          <div className="text-[10px][text-gray-400] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-400 text-center py-2">No history records yet.</p>
+                    )}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={closeManageModal} 
+                  className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors mt-2"
+                >
+                  Close Modal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   )
