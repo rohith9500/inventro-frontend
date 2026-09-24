@@ -7,8 +7,8 @@ function App() {
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
-  // Inga unga Render backend live URL set pannirukku
-  const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
+  // Updated API URL (without /api)
+  const API_URL = 'https://inventro-backend-24r6.onrender.com/products';
 
   const fetchProducts = async () => {
     try {
