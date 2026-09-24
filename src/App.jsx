@@ -7,7 +7,9 @@ function App() {
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
-  // Updated API URL with /api prefix
+  const [searchQuery, setSearchQuery] = useState('');
+  const [reduceInputs, setReduceInputs] = useState({});
+
   const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
 
   const fetchProducts = async () => {
@@ -71,6 +73,58 @@ function App() {
     }
   };
 
+  const handleReduceStock = async (e, id) => {
+    e.preventDefault();
+    const productInputs = reduceInputs[id] || {};
+    const reduceQty = productInputs.qty;
+    const buyerName = productInputs.buyer;
+
+    if (!reduceQty || !buyerName) {
+      alert("Please enter both quantity and buyer name!");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/${id}/reduce`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reduceQty, buyerName })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Error reducing stock");
+        return;
+      }
+
+      setReduceInputs({
+        ...reduceInputs,
+        [id]: { qty: '', buyer: '' }
+      });
+
+      fetchProducts();
+    } catch (error) {
+      console.error("Error reducing stock:", error);
+    }
+  };
+
+  const handleReduceInputChange = (id, field, value) => {
+    setReduceInputs({
+      ...reduceInputs,
+      [id]: {
+        ...(reduceInputs[id] || { qty: '', buyer: '' }),
+        [field]: value
+      }
+    });
+  };
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalProductsCount = products.length;
+  const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
       {/* Sidebar */}
@@ -121,44 +175,94 @@ function App() {
                 </form>
               </div>
 
+              {/* Search Bar */}
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center">
+                <input 
+                  type="text" 
+                  placeholder="🔍 Search product by name..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
               {/* Products Table */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
+                  <table className="w-full text-left text-sm">
                     <thead className="uppercase tracking-wider border-b-2 border-gray-100 text-gray-500 bg-gray-50">
                       <tr>
                         <th className="px-6 py-4">Product Name</th>
                         <th className="px-6 py-4">Category</th>
                         <th className="px-6 py-4 text-right">Price</th>
                         <th className="px-6 py-4 text-center">Stock</th>
+                        <th className="px-6 py-4 text-center">Stock Reduce & History</th>
                         <th className="px-6 py-4 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {products.map(product => (
-                        <tr key={product._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
-                          <td className="px-6 py-4"><span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">{product.category}</span></td>
-                          <td className="px-6 py-4 text-right font-medium">₹{product.price}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`px-3 py-1 rounded-md text-xs font-bold ${product.quantity <= 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                              {product.quantity}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center space-x-2">
-                            <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium">
-                              Edit
-                            </button>
-                            <button onClick={() => handleDelete(product._id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium">
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {products.length === 0 && (
+                      {filteredProducts.map(product => {
+                        const pInput = reduceInputs[product._id] || { qty: '', buyer: '' };
+                        return (
+                          <tr key={product._id} className="hover:bg-gray-50 transition-colors align-top">
+                            <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
+                            <td className="px-6 py-4"><span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-md font-medium">{product.category}</span></td>
+                            <td className="px-6 py-4 text-right font-medium">₹{product.price}</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-3 py-1 rounded-md text-xs font-bold ${product.quantity <= 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {product.quantity}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <form onSubmit={(e) => handleReduceStock(e, product._id)} className="flex flex-col space-y-2">
+                                <div className="flex space-x-2">
+                                  <input 
+                                    type="number" 
+                                    placeholder="Qty" 
+                                    value={pInput.qty}
+                                    onChange={(e) => handleReduceInputChange(product._id, 'qty', e.target.value)}
+                                    className="border border-gray-300 p-1.5 rounded w-20 text-xs outline-none"
+                                  />
+                                  <input 
+                                    type="text" 
+                                    placeholder="Buyer Name" 
+                                    value={pInput.buyer}
+                                    onChange={(e) => handleReduceInputChange(product._id, 'buyer', e.target.value)}
+                                    className="border border-gray-300 p-1.5 rounded w-28 text-xs outline-none"
+                                  />
+                                  <button type="submit" className="bg-emerald-600 text-white px-2.5 py-1.5 rounded text-xs font-medium hover:bg-emerald-700">
+                                    Minus
+                                  </button>
+                                </div>
+                              </form>
+
+                              {product.history && product.history.length > 0 && (
+                                <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-200 max-h-28 overflow-y-auto">
+                                  <span className="font-bold text-gray-600 block mb-1">History:</span>
+                                  {product.history.map((h, idx) => (
+                                    <div key={idx} className="text-gray-600 mb-1 border-b border-gray-100 pb-1">
+                                      -{h.quantityReduced} by <span className="font-semibold">{h.buyerName}</span>
+                                      <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-center space-x-2">
+                              <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium">
+                                Edit
+                              </button>
+                              <button onClick={() => handleDelete(product._id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium">
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                            No products found. Add a product to get started!
+                          <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                            No products found.
                           </td>
                         </tr>
                       )}
@@ -173,10 +277,20 @@ function App() {
                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
                  <div>
                    <p className="text-sm font-medium text-gray-500">Total Products</p>
-                   <p className="text-4xl font-bold text-gray-900 mt-1">{products.length}</p>
+                   <p className="text-4xl font-bold text-gray-900 mt-1">{totalProductsCount}</p>
                  </div>
                  <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl">
                    📦
+                 </div>
+               </div>
+
+               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                 <div>
+                   <p className="text-sm font-medium text-gray-500">Total Stock Value</p>
+                   <p className="text-4xl font-bold text-gray-900 mt-1">₹{totalStockValue.toLocaleString()}</p>
+                 </div>
+                 <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-2xl">
+                   💰
                  </div>
                </div>
             </div>
