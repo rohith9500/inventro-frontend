@@ -7,8 +7,8 @@ function App() {
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
-  // Updated API URL (without /api)
-  const API_URL = 'https://inventro-backend-24r6.onrender.com/products';
+  // Updated API URL with /api prefix
+  const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
 
   const fetchProducts = async () => {
     try {
