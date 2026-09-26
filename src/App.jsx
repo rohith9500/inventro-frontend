@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [userEmail, setUserEmail] = useState(localStorage.getItem('email') || '');
+  const [username, setUsername] = useState(localStorage.getItem('username') || 'Admin');
   const [authMode, setAuthMode] = useState('login');
   const [authData, setAuthData] = useState({ username: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
@@ -23,6 +24,10 @@ function App() {
 
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Form reference for auto-scrolling
+  const formRef = useRef(null);
 
   const BACKEND_URL = 'https://inventro-backend-24r6.onrender.com';
 
@@ -67,8 +72,10 @@ function App() {
       if (authMode === 'login') {
         localStorage.setItem('token', data.token);
         localStorage.setItem('email', authData.email);
+        localStorage.setItem('username', data.username || authData.email.split('@')[0]);
         setToken(data.token);
         setUserEmail(authData.email);
+        setUsername(data.username || authData.email.split('@')[0]);
       } else {
         alert("Registration successful! Please login now.");
         setAuthMode('login');
@@ -80,10 +87,10 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('email');
+    localStorage.clear();
     setToken('');
     setUserEmail('');
+    setUsername('');
   };
 
   const handleChange = (e) => {
@@ -114,6 +121,7 @@ function App() {
     }
   };
 
+  // Auto-scroll to top form when Edit is clicked
   const handleEdit = (product) => {
     setEditingId(product._id);
     setFormData({
@@ -121,6 +129,9 @@ function App() {
       price: product.price,
       quantity: product.quantity
     });
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleDelete = async (product) => {
@@ -267,12 +278,27 @@ function App() {
   const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
   const activeProduct = products.find(p => p._id === activeModalProductId);
 
+  // Collect all stock reduction history across products for the dashboard live feed
+  const allHistoryLogs = [];
+  products.forEach(p => {
+    if (p.history && p.history.length > 0) {
+      p.history.forEach(h => {
+        allHistoryLogs.push({
+          productName: p.name,
+          ...h
+        });
+      });
+    }
+  });
+  // Sort by recent date first
+  allHistoryLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
   if (!token) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦VKN INVENTORY</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
@@ -304,7 +330,7 @@ function App() {
               <input 
                 type="email" 
                 name="email"
-                placeholder="rohitharuchamy11@gmail.com" 
+                placeholder="rohitha.24csc@kongu.edu" 
                 value={authData.email}
                 onChange={handleAuthChange}
                 required
@@ -386,20 +412,47 @@ function App() {
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
           <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
-          <div className="flex items-center space-x-2">
+          
+          <div className="flex items-center space-x-4">
             <button onClick={handleDownloadPDF} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors">
               📄 Download PDF
             </button>
-            <button onClick={handleLogout} className="md:hidden bg-red-600 text-white px-3 py-1 rounded text-xs font-medium">
-              Logout
-            </button>
+
+            {/* Profile Pill with Dropdown / Logout */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors"
+              >
+                <div className="h-7 w-7 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
+                  {username.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-semibold text-gray-700 hidden sm:inline">{userEmail}</span>
+                <span className="text-xs">▼</span>
+              </button>
+
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs text-gray-400">Signed in as</p>
+                    <p className="text-sm font-bold text-gray-800 truncate">{userEmail}</p>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-semibold flex items-center space-x-2"
+                  >
+                    <span>🚪 Logout</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {activeTab === 'products' ? (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div ref={formRef} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
@@ -487,26 +540,49 @@ function App() {
 
             </div>
           ) : activeTab === 'dashboard' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                 <div>
-                   <p className="text-sm font-medium text-gray-500">Total Products</p>
-                   <p className="text-4xl font-bold text-gray-900 mt-1">{totalProductsCount}</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-medium text-gray-500">Total Products</p>
+                     <p className="text-4xl font-bold text-gray-900 mt-1">{totalProductsCount}</p>
+                   </div>
+                   <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl">
+                     📦
+                   </div>
                  </div>
-                 <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl">
-                   📦
-                 </div>
-               </div>
 
-               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                 <div>
-                   <p className="text-sm font-medium text-gray-500">Total Stock Value</p>
-                   <p className="text-4xl font-bold text-gray-900 mt-1">₹{totalStockValue.toLocaleString()}</p>
+                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-medium text-gray-500">Total Stock Value</p>
+                     <p className="text-4xl font-bold text-gray-900 mt-1">₹{totalStockValue.toLocaleString()}</p>
+                   </div>
+                   <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-2xl">
+                     💰
+                   </div>
                  </div>
-                 <div className="h-12 w-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-2xl">
-                   💰
-                 </div>
-               </div>
+              </div>
+
+              {/* Recent Updates / Activity Feed with Date & Time */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-base text-gray-800 mb-4">⚡ Recent Stock Activities & Updates</h3>
+                <div className="space-y-3 max-h-72 overflow-y-auto">
+                  {allHistoryLogs.length > 0 ? (
+                    allHistoryLogs.map((log, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 text-xs">
+                        <div>
+                          <span className="font-bold text-gray-900">{log.productName}</span>: Sold <span className="text-red-600 font-bold">-{log.quantityReduced} units</span> to <span className="font-semibold">{log.buyerName}</span>
+                        </div>
+                        <div className="text-gray-400 font-medium">
+                          {new Date(log.date).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-4">No recent stock activities recorded yet.</p>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="max-w-xl space-y-6">
