@@ -260,7 +260,7 @@ function App() {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col h-full z-20">
         <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl tracking-wider text-indigo-400">
-          📦 INVENTRO
+          📦 VKN INVENTORY
         </div>
         <div className="flex-1 py-4 px-4 space-y-2">
           <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors font-medium ${activeTab === 'dashboard' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
