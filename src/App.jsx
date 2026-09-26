@@ -265,13 +265,11 @@ function App() {
     }
   };
 
-  // Professional jsPDF generation with all product details
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     
-    // Title & Header info
     doc.setFontSize(20);
-    doc.setTextColor(79, 70, 229); // Indigo color
+    doc.setTextColor(79, 70, 229);
     doc.text("INVENTRO - Stock Inventory Report", 14, 20);
 
     doc.setFontSize(10);
@@ -282,22 +280,19 @@ function App() {
     const totalVal = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
     doc.text(`Total Products: ${products.length}   |   Total Stock Value: Rs. ${totalVal.toLocaleString()}`, 14, 40);
 
-    // Table data mapping
     const tableColumn = ["Product Name", "Price (Rs.)", "Stock Quantity", "Total Value (Rs.)"];
     const tableRows = [];
 
     products.forEach(p => {
       const pValue = Number(p.price) * Number(p.quantity);
-      const rowData = [
+      tableRows.push([
         p.name,
         `Rs. ${p.price}`,
         p.quantity,
         `Rs. ${pValue.toLocaleString()}`
-      ];
-      tableRows.push(rowData);
+      ]);
     });
 
-    // Generate table using autoTable
     doc.autoTable({
       head: [tableColumn],
       body: tableRows,
@@ -307,7 +302,6 @@ function App() {
       styles: { fontSize: 10, cellPadding: 4 }
     });
 
-    // Save PDF
     doc.save(`Inventro_Report_${userEmail.split('@')[0]}.pdf`);
   };
 
@@ -337,7 +331,7 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦VKN INVENTORY</h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
