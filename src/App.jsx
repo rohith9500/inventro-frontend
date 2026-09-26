@@ -2,22 +2,33 @@ import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
+  // Auth States
+  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authData, setAuthData] = useState({ username: '', email: '', password: '' });
+  const [authError, setAuthError] = useState('');
+
+  // Dashboard States
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({ name: '', price: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Modal state for Manage Stock
   const [activeModalProductId, setActiveModalProductId] = useState(null);
   const [reduceData, setReduceData] = useState({ qty: '', buyer: '' });
 
-  const API_URL = 'https://inventro-backend-24r6.onrender.com/api/products';
+  const BACKEND_URL = 'https://inventro-backend-24r6.onrender.com';
+
+  useEffect(() => {
+    if (token) {
+      fetchProducts();
+    }
+  }, [token]);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(API_URL);
+      const res = await fetch(`${BACKEND_URL}/api/products`);
       const data = await res.json();
       setProducts(data);
     } catch (error) {
@@ -25,9 +36,47 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  // Auth Input Handler
+  const handleAuthChange = (e) => {
+    setAuthData({ ...authData, [e.target.name]: e.target.value });
+  };
+
+  // Login / Register Submit
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+    try {
+      const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authData)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.message || "Authentication failed");
+        return;
+      }
+
+      if (authMode === 'login') {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+      } else {
+        alert("Registration successful! Please login now.");
+        setAuthMode('login');
+        setAuthData({ username: '', email: '', password: '' });
+      }
+    } catch (err) {
+      setAuthError("Network error. Please try again.");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken('');
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -37,14 +86,14 @@ function App() {
     e.preventDefault();
     try {
       if (editingId) {
-        await fetch(`${API_URL}/${editingId}`, {
+        await fetch(`${BACKEND_URL}/api/products/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
         setEditingId(null);
       } else {
-        await fetch(API_URL, {
+        await fetch(`${BACKEND_URL}/api/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -68,26 +117,23 @@ function App() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      await fetch(`${BACKEND_URL}/api/products/${id}`, { method: 'DELETE' });
       fetchProducts();
     } catch (error) {
       console.error("Error deleting product: ", error);
     }
   };
 
-  // Open Modal
   const openManageModal = (productId) => {
     setActiveModalProductId(productId);
     setReduceData({ qty: '', buyer: '' });
   };
 
-  // Close Modal
   const closeManageModal = () => {
     setActiveModalProductId(null);
     setReduceData({ qty: '', buyer: '' });
   };
 
-  // Handle stock reduction inside modal
   const handleReduceStock = async (e, id) => {
     e.preventDefault();
     if (!reduceData.qty || !reduceData.buyer) {
@@ -96,7 +142,7 @@ function App() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/${id}/reduce`, {
+      const res = await fetch(`${BACKEND_URL}/api/products/${id}/reduce`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reduceQty: reduceData.qty, buyerName: reduceData.buyer })
@@ -110,7 +156,6 @@ function App() {
 
       setReduceData({ qty: '', buyer: '' });
       fetchProducts();
-      // Keep modal open to view updated history or close if preferred
     } catch (error) {
       console.error("Error reducing stock:", error);
     }
@@ -122,10 +167,94 @@ function App() {
 
   const totalProductsCount = products.length;
   const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
-
-  // Find currently selected product for modal view
   const activeProduct = products.find(p => p._id === activeModalProductId);
 
+  // IF NOT LOGGED IN, SHOW LOGIN / SIGNUP PAGE
+  if (!token) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
+            </p>
+          </div>
+
+          {authError && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs font-medium mb-4 text-center">
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
+            {authMode === 'signup' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Username</label>
+                <input 
+                  type="text" 
+                  name="username"
+                  placeholder="Enter your name" 
+                  value={authData.username}
+                  onChange={handleAuthChange}
+                  required
+                  className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
+              <input 
+                type="email" 
+                name="email"
+                placeholder="name@example.com" 
+                value={authData.email}
+                onChange={handleAuthChange}
+                required
+                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+              <input 
+                type="password" 
+                name="password"
+                placeholder="••••••••" 
+                value={authData.password}
+                onChange={handleAuthChange}
+                required
+                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+              {authMode === 'login' ? 'Login' : 'Sign Up'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-xs text-gray-600">
+            {authMode === 'login' ? (
+              <p>
+                Don't have an account?{' '}
+                <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className="text-indigo-600 font-bold hover:underline">
+                  Sign Up
+                </button>
+              </p>
+            ) : (
+              <p>
+                Already have an account?{' '}
+                <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-indigo-600 font-bold hover:underline">
+                  Login
+                </button>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // LOGGED IN DASHBOARD VIEW
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
       {/* Sidebar */}
@@ -141,6 +270,11 @@ function App() {
              Products
           </button>
         </div>
+        <div className="p-4 border-t border-gray-800">
+          <button onClick={handleLogout} className="w-full bg-red-600 text-white py-2 rounded-lg font-medium text-sm hover:bg-red-700 transition-colors">
+            Logout
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -148,13 +282,16 @@ function App() {
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
           <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
+          <button onClick={handleLogout} className="md:hidden bg-red-600 text-white px-3 py-1 rounded text-xs font-medium">
+            Logout
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {activeTab === 'products' ? (
             <div className="space-y-6">
               
-              {/* Add / Edit Product Form (Category Removed) */}
+              {/* Add / Edit Product Form */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
@@ -180,7 +317,7 @@ function App() {
                 />
               </div>
 
-              {/* Products Table (Clean & Non-congested) */}
+              {/* Products Table */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -276,7 +413,6 @@ function App() {
                   <span className="font-bold text-lg text-indigo-600">{activeProduct.quantity}</span>
                 </div>
 
-                {/* Reduce Stock Form inside Modal */}
                 <form onSubmit={(e) => handleReduceStock(e, activeProduct._id)} className="space-y-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Quantity to Reduce</label>
@@ -305,7 +441,6 @@ function App() {
                   </button>
                 </form>
 
-                {/* History Logs View inside Modal */}
                 <div className="mt-4">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-2">Stock History Logs</h4>
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-40 overflow-y-auto space-y-2">
@@ -313,7 +448,7 @@ function App() {
                       activeProduct.history.map((h, idx) => (
                         <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0">
                           <span className="text-red-600 font-bold">-{h.quantityReduced} units</span> sold to <span className="font-semibold">{h.buyerName}</span>
-                          <div className="text-[10px][text-gray-400] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                          <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
                         </div>
                       ))
                     ) : (
