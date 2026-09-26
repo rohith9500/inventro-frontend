@@ -337,7 +337,7 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦 VKN INVENTORY</h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦VKN INVENTORY</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
