@@ -26,9 +26,7 @@ function App() {
   const [passwordMsg, setPasswordMsg] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // Form reference for auto-scrolling
   const formRef = useRef(null);
-
   const BACKEND_URL = 'https://inventro-backend-24r6.onrender.com';
 
   useEffect(() => {
@@ -121,7 +119,6 @@ function App() {
     }
   };
 
-  // Auto-scroll to top form when Edit is clicked
   const handleEdit = (product) => {
     setEditingId(product._id);
     setFormData({
@@ -278,7 +275,6 @@ function App() {
   const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
   const activeProduct = products.find(p => p._id === activeModalProductId);
 
-  // Collect all stock reduction history across products for the dashboard live feed
   const allHistoryLogs = [];
   products.forEach(p => {
     if (p.history && p.history.length > 0) {
@@ -290,7 +286,6 @@ function App() {
       });
     }
   });
-  // Sort by recent date first
   allHistoryLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!token) {
@@ -298,7 +293,7 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦VKN INVENTORY</h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
@@ -386,7 +381,7 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
-      <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col h-full z-20">
+      <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col h-full z-20 no-print">
         <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl tracking-wider text-indigo-400">
           📦 INVENTRO
         </div>
@@ -401,15 +396,10 @@ function App() {
              Settings & Backup
           </button>
         </div>
-        <div className="p-4 border-t border-gray-800">
-          <button onClick={handleLogout} className="w-full bg-red-600 text-white py-2 rounded-lg font-medium text-sm hover:bg-red-700 transition-colors">
-            Logout
-          </button>
-        </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10 no-print">
           <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
           
@@ -418,7 +408,6 @@ function App() {
               📄 Download PDF
             </button>
 
-            {/* Profile Pill with Dropdown / Logout */}
             <div className="relative">
               <button 
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -449,10 +438,17 @@ function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Printable Report Header (Always included when printing PDF) */}
+        <div className="print-only p-6 bg-white border-b mb-4">
+          <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO - Stock Inventory Report</h1>
+          <p className="text-xs text-gray-500 mt-1">Account: {userEmail} | Generated on: {new Date().toLocaleString()}</p>
+          <div className="mt-2 text-sm font-semibold">Total Products: {totalProductsCount} | Total Stock Value: ₹{totalStockValue.toLocaleString()}</div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 printable-area">
           {activeTab === 'products' ? (
             <div className="space-y-6">
-              <div ref={formRef} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div ref={formRef} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 no-print">
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
@@ -466,7 +462,7 @@ function App() {
                 </form>
               </div>
 
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center relative">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center relative no-print">
                 <input 
                   type="text" 
                   placeholder="🔍 Search product by name..." 
@@ -492,12 +488,12 @@ function App() {
                         <th className="px-6 py-4">Product Name</th>
                         <th className="px-6 py-4 text-right">Price</th>
                         <th className="px-6 py-4 text-center">Stock</th>
-                        <th className="px-6 py-4 text-center">Stock Management</th>
-                        <th className="px-6 py-4 text-center">Actions</th>
+                        <th className="px-6 py-4 text-center no-print">Stock Management</th>
+                        <th className="px-6 py-4 text-center no-print">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredProducts.map(product => {
+                      {products.map(product => {
                         return (
                           <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
@@ -507,7 +503,7 @@ function App() {
                                 {product.quantity}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-center">
+                            <td className="px-6 py-4 text-center no-print">
                               <button 
                                 onClick={() => openManageModal(product._id)}
                                 className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-md hover:bg-emerald-600 hover:text-white transition-colors font-medium text-xs"
@@ -515,7 +511,7 @@ function App() {
                                 📊 Manage Stock
                               </button>
                             </td>
-                            <td className="px-6 py-4 text-center space-x-2">
+                            <td className="px-6 py-4 text-center space-x-2 no-print">
                               <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium text-xs">
                                 Edit
                               </button>
@@ -526,7 +522,7 @@ function App() {
                           </tr>
                         );
                       })}
-                      {filteredProducts.length === 0 && (
+                      {products.length === 0 && (
                         <tr>
                           <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
                             No products found.
@@ -563,7 +559,6 @@ function App() {
                  </div>
               </div>
 
-              {/* Recent Updates / Activity Feed with Date & Time */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="font-bold text-base text-gray-800 mb-4">⚡ Recent Stock Activities & Updates</h3>
                 <div className="space-y-3 max-h-72 overflow-y-auto">
@@ -585,7 +580,7 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="max-w-xl space-y-6">
+            <div className="max-w-xl space-y-6 no-print">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="font-bold text-lg mb-4 text-gray-800">Change Password</h3>
                 {passwordMsg && (
@@ -637,7 +632,7 @@ function App() {
         </div>
 
         {undoToast && (
-          <div className="absolute bottom-6 right-6 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-4 z-50">
+          <div className="absolute bottom-6 right-6 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-4 z-50 no-print">
             <span className="text-sm">Product deleted successfully!</span>
             <button onClick={handleUndoDelete} className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-indigo-500">
               ↩️ Undo
@@ -646,7 +641,7 @@ function App() {
         )}
 
         {activeModalProductId && activeProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 no-print">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
               <div className="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
                 <h3 className="font-bold text-lg">Manage Stock: {activeProduct.name}</h3>
