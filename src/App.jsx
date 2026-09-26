@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
-  // Auth States
   const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('email') || '');
+  const [authMode, setAuthMode] = useState('login');
   const [authData, setAuthData] = useState({ username: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Dashboard States
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({ name: '', price: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
@@ -18,17 +18,23 @@ function App() {
   const [activeModalProductId, setActiveModalProductId] = useState(null);
   const [reduceData, setReduceData] = useState({ qty: '', buyer: '' });
 
+  const [deletedProductCache, setDeletedProductCache] = useState(null);
+  const [undoToast, setUndoToast] = useState(false);
+
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '' });
+  const [passwordMsg, setPasswordMsg] = useState('');
+
   const BACKEND_URL = 'https://inventro-backend-24r6.onrender.com';
 
   useEffect(() => {
-    if (token) {
+    if (token && userEmail) {
       fetchProducts();
     }
-  }, [token]);
+  }, [token, userEmail]);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/products`);
+      const res = await fetch(`${BACKEND_URL}/api/products?email=${userEmail}`);
       const data = await res.json();
       setProducts(data);
     } catch (error) {
@@ -36,12 +42,10 @@ function App() {
     }
   };
 
-  // Auth Input Handler
   const handleAuthChange = (e) => {
     setAuthData({ ...authData, [e.target.name]: e.target.value });
   };
 
-  // Login / Register Submit
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -62,7 +66,9 @@ function App() {
 
       if (authMode === 'login') {
         localStorage.setItem('token', data.token);
+        localStorage.setItem('email', authData.email);
         setToken(data.token);
+        setUserEmail(authData.email);
       } else {
         alert("Registration successful! Please login now.");
         setAuthMode('login');
@@ -75,7 +81,9 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('email');
     setToken('');
+    setUserEmail('');
   };
 
   const handleChange = (e) => {
@@ -96,7 +104,7 @@ function App() {
         await fetch(`${BACKEND_URL}/api/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify({ ...formData, userEmail })
         });
       }
       setFormData({ name: '', price: '', quantity: '' });
@@ -115,12 +123,40 @@ function App() {
     });
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (product) => {
+    if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
+      return;
+    }
+
     try {
-      await fetch(`${BACKEND_URL}/api/products/${id}`, { method: 'DELETE' });
+      await fetch(`${BACKEND_URL}/api/products/${product._id}`, { method: 'DELETE' });
+      setDeletedProductCache(product);
+      setUndoToast(true);
+      setTimeout(() => setUndoToast(false), 6000);
       fetchProducts();
     } catch (error) {
       console.error("Error deleting product: ", error);
+    }
+  };
+
+  const handleUndoDelete = async () => {
+    if (!deletedProductCache) return;
+    try {
+      await fetch(`${BACKEND_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deletedProductCache.name,
+          price: deletedProductCache.price,
+          quantity: deletedProductCache.quantity,
+          userEmail
+        })
+      });
+      setDeletedProductCache(null);
+      setUndoToast(false);
+      fetchProducts();
+    } catch (err) {
+      console.error("Error undoing delete:", err);
     }
   };
 
@@ -161,6 +197,68 @@ function App() {
     }
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordMsg('');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordMsg(data.message || "Failed to change password");
+        return;
+      }
+      setPasswordMsg("Password changed successfully!");
+      setPasswordData({ currentPassword: '', newPassword: '' });
+    } catch (err) {
+      setPasswordMsg("Network error.");
+    }
+  };
+
+  const handleExportData = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "inventro_backup.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleImportData = (e) => {
+    const fileReader = new FileReader();
+    if (e.target.files[0]) {
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = async (event) => {
+        try {
+          const importedProducts = JSON.parse(event.target.result);
+          for (let p of importedProducts) {
+            await fetch(`${BACKEND_URL}/api/products`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: p.name, price: p.price, quantity: p.quantity, userEmail })
+            });
+          }
+          fetchProducts();
+          alert("Data imported successfully!");
+        } catch (err) {
+          alert("Invalid JSON file format!");
+        }
+      };
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    window.print();
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -169,13 +267,12 @@ function App() {
   const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
   const activeProduct = products.find(p => p._id === activeModalProductId);
 
-  // IF NOT LOGGED IN, SHOW LOGIN / SIGNUP PAGE
   if (!token) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦VKN INVENTORY </h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
@@ -207,24 +304,31 @@ function App() {
               <input 
                 type="email" 
                 name="email"
-                placeholder="name@example.com" 
+                placeholder="rohitharuchamy11@gmail.com" 
                 value={authData.email}
                 onChange={handleAuthChange}
                 required
                 className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 name="password"
                 placeholder="••••••••" 
                 value={authData.password}
                 onChange={handleAuthChange}
                 required
-                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
               />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
+              >
+                {showPassword ? "👁️‍🗨️" : "👁️"}
+              </button>
             </div>
 
             <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
@@ -254,13 +358,11 @@ function App() {
     );
   }
 
-  // LOGGED IN DASHBOARD VIEW
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col h-full z-20">
         <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl tracking-wider text-indigo-400">
-          📦 VKN INVENTORY
+          📦 INVENTRO
         </div>
         <div className="flex-1 py-4 px-4 space-y-2">
           <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors font-medium ${activeTab === 'dashboard' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
@@ -268,6 +370,9 @@ function App() {
           </button>
           <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors font-medium ${activeTab === 'products' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
              Products
+          </button>
+          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors font-medium ${activeTab === 'settings' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+             Settings & Backup
           </button>
         </div>
         <div className="p-4 border-t border-gray-800">
@@ -277,21 +382,23 @@ function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
           <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
-          <button onClick={handleLogout} className="md:hidden bg-red-600 text-white px-3 py-1 rounded text-xs font-medium">
-            Logout
-          </button>
+          <div className="flex items-center space-x-2">
+            <button onClick={handleDownloadPDF} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-colors">
+              📄 Download PDF
+            </button>
+            <button onClick={handleLogout} className="md:hidden bg-red-600 text-white px-3 py-1 rounded text-xs font-medium">
+              Logout
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {activeTab === 'products' ? (
             <div className="space-y-6">
-              
-              {/* Add / Edit Product Form */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
@@ -306,18 +413,24 @@ function App() {
                 </form>
               </div>
 
-              {/* Search Bar */}
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center relative">
                 <input 
                   type="text" 
                   placeholder="🔍 Search product by name..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none pr-10"
                 />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-6 text-gray-400 hover:text-gray-700 font-bold text-lg"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
-              {/* Products Table */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -353,7 +466,7 @@ function App() {
                               <button onClick={() => handleEdit(product)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white transition-colors font-medium text-xs">
                                 Edit
                               </button>
-                              <button onClick={() => handleDelete(product._id)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium text-xs">
+                              <button onClick={() => handleDelete(product)} className="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-600 hover:text-white transition-colors font-medium text-xs">
                                 Delete
                               </button>
                             </td>
@@ -373,7 +486,7 @@ function App() {
               </div>
 
             </div>
-          ) : (
+          ) : activeTab === 'dashboard' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
                  <div>
@@ -395,10 +508,67 @@ function App() {
                  </div>
                </div>
             </div>
+          ) : (
+            <div className="max-w-xl space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-lg mb-4 text-gray-800">Change Password</h3>
+                {passwordMsg && (
+                  <div className={`p-3 rounded-lg text-xs font-medium mb-4 ${passwordMsg.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                    {passwordMsg}
+                  </div>
+                )}
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Current Password</label>
+                    <input 
+                      type="password" 
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+                    <input 
+                      type="password" 
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+                    Update Password
+                  </button>
+                </form>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                <h3 className="font-bold text-lg text-gray-800">Data Backup & Restore (Import / Export)</h3>
+                <div className="flex space-x-4">
+                  <button onClick={handleExportData} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
+                    📥 Export JSON Backup
+                  </button>
+                  <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 cursor-pointer">
+                    📤 Import Backup
+                    <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                  </label>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Manage Stock Popup Modal */}
+        {undoToast && (
+          <div className="absolute bottom-6 right-6 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-4 z-50">
+            <span className="text-sm">Product deleted successfully!</span>
+            <button onClick={handleUndoDelete} className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-indigo-500">
+              ↩️ Undo
+            </button>
+          </div>
+        )}
+
         {activeModalProductId && activeProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -442,10 +612,10 @@ function App() {
                 </form>
 
                 <div className="mt-4">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-2">Stock History Logs</h4>
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-gray-500 mb-2">Stock History Logs (Recent First)</h4>
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-40 overflow-y-auto space-y-2">
                     {activeProduct.history && activeProduct.history.length > 0 ? (
-                      activeProduct.history.map((h, idx) => (
+                      [...activeProduct.history].reverse().map((h, idx) => (
                         <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0">
                           <span className="text-red-600 font-bold">-{h.quantityReduced} units</span> sold to <span className="font-semibold">{h.buyerName}</span>
                           <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
