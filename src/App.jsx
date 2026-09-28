@@ -19,7 +19,10 @@ function App() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModalProductId, setActiveModalProductId] = useState(null);
-  const [reduceData, setReduceData] = useState({ qty: '', buyer: '' });
+  
+  // Stock modal tabs ('reduce' or 'add')
+  const [stockActionType, setStockActionType] = useState('reduce'); 
+  const [stockInputData, setStockInputData] = useState({ qty: '', partyName: '' });
 
   const [deletedProductCache, setDeletedProductCache] = useState(null);
   const [undoToast, setUndoToast] = useState(false);
@@ -172,38 +175,45 @@ function App() {
 
   const openManageModal = (productId) => {
     setActiveModalProductId(productId);
-    setReduceData({ qty: '', buyer: '' });
+    setStockActionType('reduce');
+    setStockInputData({ qty: '', partyName: '' });
   };
 
   const closeManageModal = () => {
     setActiveModalProductId(null);
-    setReduceData({ qty: '', buyer: '' });
+    setStockInputData({ qty: '', partyName: '' });
   };
 
-  const handleReduceStock = async (e, id) => {
+  // Stock Transaction Handler (Reduce or Add)
+  const handleStockTransaction = async (e, id) => {
     e.preventDefault();
-    if (!reduceData.qty || !reduceData.buyer) {
-      alert("Please enter both quantity and buyer name!");
+    if (!stockInputData.qty || !stockInputData.partyName) {
+      alert("Please fill all fields!");
       return;
     }
 
+    const endpoint = stockActionType === 'reduce' ? 'reduce' : 'add-stock';
+    const payload = stockActionType === 'reduce' 
+      ? { reduceQty: stockInputData.qty, buyerName: stockInputData.partyName }
+      : { addQty: stockInputData.qty, supplierName: stockInputData.partyName };
+
     try {
-      const res = await fetch(`${BACKEND_URL}/api/products/${id}/reduce`, {
+      const res = await fetch(`${BACKEND_URL}/api/products/${id}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reduceQty: reduceData.qty, buyerName: reduceData.buyer })
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "Error reducing stock");
+        alert(data.message || "Error updating stock");
         return;
       }
 
-      setReduceData({ qty: '', buyer: '' });
+      setStockInputData({ qty: '', partyName: '' });
       fetchProducts();
     } catch (error) {
-      console.error("Error reducing stock:", error);
+      console.error("Error updating stock:", error);
     }
   };
 
@@ -236,7 +246,7 @@ function App() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "inventro_backup.json");
+    downloadAnchor.setAttribute("download", "vkn_inventory_backup.json");
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -270,7 +280,7 @@ function App() {
     
     doc.setFontSize(20);
     doc.setTextColor(79, 70, 229);
-    doc.text("INVENTRO - Stock Inventory Report", 14, 20);
+    doc.text("VKN INVENTORY - Stock Report", 14, 20);
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
@@ -302,7 +312,7 @@ function App() {
       styles: { fontSize: 10, cellPadding: 4 }
     });
 
-    doc.save(`Inventro_Report_${userEmail.split('@')[0]}.pdf`);
+    doc.save(`VKN_Inventory_Report_${userEmail.split('@')[0]}.pdf`);
   };
 
   const filteredProducts = products.filter(product =>
@@ -331,7 +341,7 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-gray-900 font-sans px-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-indigo-600">📦 INVENTRO</h1>
+            <h1 className="text-2xl font-bold text-indigo-600">📦 VKN INVENTORY</h1>
             <p className="text-sm text-gray-500 mt-1">
               {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
             </p>
@@ -421,7 +431,7 @@ function App() {
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-hidden">
       <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col h-full z-20">
         <div className="h-16 flex items-center px-6 border-b border-gray-800 font-bold text-xl tracking-wider text-indigo-400">
-          📦 INVENTRO
+          📦 VKN INVENTORY
         </div>
         <div className="flex-1 py-4 px-4 space-y-2">
           <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors font-medium ${activeTab === 'dashboard' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
@@ -438,7 +448,7 @@ function App() {
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
-          <div className="font-bold text-xl md:hidden text-indigo-600">INVENTRO</div>
+          <div className="font-bold text-xl md:hidden text-indigo-600">VKN INVENTORY</div>
           <div className="hidden md:block text-gray-500 font-bold text-lg capitalize">{activeTab}</div>
           
           <div className="flex items-center space-x-4">
@@ -597,7 +607,9 @@ function App() {
                     allHistoryLogs.map((log, idx) => (
                       <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100 text-xs">
                         <div>
-                          <span className="font-bold text-gray-900">{log.productName}</span>: Sold <span className="text-red-600 font-bold">-{log.quantityReduced} units</span> to <span className="font-semibold">{log.buyerName}</span>
+                          <span className="font-bold text-gray-900">{log.productName}</span>: <span className={log.quantityReduced < 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                            {log.quantityReduced < 0 ? `+${Math.abs(log.quantityReduced)} units` : `-${log.quantityReduced} units`}
+                          </span> ({log.buyerName})
                         </div>
                         <div className="text-gray-400 font-medium">
                           {new Date(log.date).toLocaleString()}
@@ -671,6 +683,7 @@ function App() {
           </div>
         )}
 
+        {/* Manage Stock Modal with Reduce & Add Stock Tabs */}
         {activeModalProductId && activeProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -685,31 +698,53 @@ function App() {
                   <span className="font-bold text-lg text-indigo-600">{activeProduct.quantity}</span>
                 </div>
 
-                <form onSubmit={(e) => handleReduceStock(e, activeProduct._id)} className="space-y-3">
+                {/* Tab Switcher for Reduce / Add Stock */}
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button 
+                    type="button"
+                    onClick={() => { setStockActionType('reduce'); setStockInputData({ qty: '', partyName: '' }); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${stockActionType === 'reduce' ? 'bg-red-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    📉 Reduce Stock (Sell)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => { setStockActionType('add'); setStockInputData({ qty: '', partyName: '' }); }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${stockActionType === 'add' ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    📈 Add Stock (Purchase)
+                  </button>
+                </div>
+
+                <form onSubmit={(e) => handleStockTransaction(e, activeProduct._id)} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Quantity to Reduce</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      {stockActionType === 'reduce' ? 'Quantity to Reduce' : 'Quantity to Add'}
+                    </label>
                     <input 
                       type="number" 
                       placeholder="e.g. 5" 
-                      value={reduceData.qty}
-                      onChange={(e) => setReduceData({ ...reduceData, qty: e.target.value })}
+                      value={stockInputData.qty}
+                      onChange={(e) => setStockInputData({ ...stockInputData, qty: e.target.value })}
                       required
                       className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Buyer Name</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      {stockActionType === 'reduce' ? 'Buyer Name' : 'Supplier Name'}
+                    </label>
                     <input 
                       type="text" 
-                      placeholder="e.g. Rahul" 
-                      value={reduceData.buyer}
-                      onChange={(e) => setReduceData({ ...reduceData, buyer: e.target.value })}
+                      placeholder={stockActionType === 'reduce' ? 'e.g. Rahul' : 'e.g. ABC Supplier'} 
+                      value={stockInputData.partyName}
+                      onChange={(e) => setStockInputData({ ...stockInputData, partyName: e.target.value })}
                       required
                       className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-colors">
-                    Confirm & Reduce Stock
+                  <button type="submit" className={`w-full text-white py-2.5 rounded-lg font-medium text-sm transition-colors ${stockActionType === 'reduce' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                    {stockActionType === 'reduce' ? 'Confirm & Reduce Stock' : 'Confirm & Add Stock'}
                   </button>
                 </form>
 
@@ -719,7 +754,9 @@ function App() {
                     {activeProduct.history && activeProduct.history.length > 0 ? (
                       [...activeProduct.history].reverse().map((h, idx) => (
                         <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0">
-                          <span className="text-red-600 font-bold">-{h.quantityReduced} units</span> sold to <span className="font-semibold">{h.buyerName}</span>
+                          <span className={h.quantityReduced < 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                            {h.quantityReduced < 0 ? `+${Math.abs(h.quantityReduced)} units` : `-${h.quantityReduced} units`}
+                          </span> ({h.buyerName})
                           <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
                         </div>
                       ))
