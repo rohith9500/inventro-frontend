@@ -20,9 +20,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModalProductId, setActiveModalProductId] = useState(null);
   
-  // Stock modal tabs ('reduce' or 'add')
   const [stockActionType, setStockActionType] = useState('reduce'); 
   const [stockInputData, setStockInputData] = useState({ qty: '', partyName: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [deletedProductCache, setDeletedProductCache] = useState(null);
   const [undoToast, setUndoToast] = useState(false);
@@ -182,16 +182,19 @@ function App() {
   const closeManageModal = () => {
     setActiveModalProductId(null);
     setStockInputData({ qty: '', partyName: '' });
+    setIsSubmitting(false);
   };
 
-  // Stock Transaction Handler (Reduce or Add)
   const handleStockTransaction = async (e, id) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!stockInputData.qty || !stockInputData.partyName) {
       alert("Please fill all fields!");
       return;
     }
 
+    setIsSubmitting(true);
     const endpoint = stockActionType === 'reduce' ? 'reduce' : 'add-stock';
     const payload = stockActionType === 'reduce' 
       ? { reduceQty: stockInputData.qty, buyerName: stockInputData.partyName }
@@ -207,13 +210,38 @@ function App() {
       const data = await res.json();
       if (!res.ok) {
         alert(data.message || "Error updating stock");
+        setIsSubmitting(false);
         return;
       }
 
       setStockInputData({ qty: '', partyName: '' });
       fetchProducts();
+      closeManageModal();
     } catch (error) {
       console.error("Error updating stock:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Delete specific history log and revert quantity
+  const handleDeleteHistoryLog = async (productId, historyId) => {
+    if (!window.confirm("Do you want to delete this history log and revert the stock quantity?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/history/${historyId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Error deleting history log");
+        return;
+      }
+      fetchProducts();
+    } catch (err) {
+      console.error("Error deleting history log:", err);
     }
   };
 
@@ -328,6 +356,7 @@ function App() {
     if (p.history && p.history.length > 0) {
       p.history.forEach(h => {
         allHistoryLogs.push({
+          productId: p._id,
           productName: p.name,
           ...h
         });
@@ -611,8 +640,15 @@ function App() {
                             {log.quantityReduced < 0 ? `+${Math.abs(log.quantityReduced)} units` : `-${log.quantityReduced} units`}
                           </span> ({log.buyerName})
                         </div>
-                        <div className="text-gray-400 font-medium">
-                          {new Date(log.date).toLocaleString()}
+                        <div className="flex items-center space-x-3">
+                          <span className="text-gray-400 font-medium">{new Date(log.date).toLocaleString()}</span>
+                          <button 
+                            onClick={() => handleDeleteHistoryLog(log.productId, log._id)}
+                            className="text-red-500 hover:text-red-700 font-bold text-sm"
+                            title="Delete log & revert stock"
+                          >
+                            ×
+                          </button>
                         </div>
                       </div>
                     ))
@@ -683,7 +719,7 @@ function App() {
           </div>
         )}
 
-        {/* Manage Stock Modal with Reduce & Add Stock Tabs */}
+        {/* Manage Stock Modal with Revert Option */}
         {activeModalProductId && activeProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -698,7 +734,6 @@ function App() {
                   <span className="font-bold text-lg text-indigo-600">{activeProduct.quantity}</span>
                 </div>
 
-                {/* Tab Switcher for Reduce / Add Stock */}
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                   <button 
                     type="button"
@@ -743,8 +778,20 @@ function App() {
                       className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <button type="submit" className={`w-full text-white py-2.5 rounded-lg font-medium text-sm transition-colors ${stockActionType === 'reduce' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                    {stockActionType === 'reduce' ? 'Confirm & Reduce Stock' : 'Confirm & Add Stock'}
+                  
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className={`w-full text-white py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                      isSubmitting 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : stockActionType === 'reduce' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  >
+                    {isSubmitting 
+                      ? 'Processing...' 
+                      : stockActionType === 'reduce' ? 'Confirm & Reduce Stock' : 'Confirm & Add Stock'
+                    }
                   </button>
                 </form>
 
@@ -753,11 +800,19 @@ function App() {
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 max-h-40 overflow-y-auto space-y-2">
                     {activeProduct.history && activeProduct.history.length > 0 ? (
                       [...activeProduct.history].reverse().map((h, idx) => (
-                        <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0">
-                          <span className={h.quantityReduced < 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
-                            {h.quantityReduced < 0 ? `+${Math.abs(h.quantityReduced)} units` : `-${h.quantityReduced} units`}
-                          </span> ({h.buyerName})
-                          <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                        <div key={idx} className="text-xs text-gray-700 border-b border-gray-200 pb-1 last:border-0 flex justify-between items-center">
+                          <div>
+                            <span className={h.quantityReduced < 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                              {h.quantityReduced < 0 ? `+${Math.abs(h.quantityReduced)} units` : `-${h.quantityReduced} units`}
+                            </span> ({h.buyerName})
+                            <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteHistoryLog(activeProduct._id, h._id)}
+                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-colors"
+                          >
+                            Revert
+                          </button>
                         </div>
                       ))
                     ) : (
