@@ -7,14 +7,13 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [userEmail, setUserEmail] = useState(localStorage.getItem('email') || '');
   const [username, setUsername] = useState(localStorage.getItem('username') || 'Admin');
-  const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'forgot'
+  const [authMode, setAuthMode] = useState('login'); 
   const [authData, setAuthData] = useState({ username: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isOtpLoading, setIsOtpLoading] = useState(false);
 
-  // Forgot Password specific states
   const [forgotStep, setForgotStep] = useState(1); 
   const [forgotEmail, setForgotEmail] = useState('');
   const [otpData, setOtpData] = useState({ otp: '', newPassword: '' });
@@ -719,7 +718,7 @@ function App() {
                 </h2>
 
                 <div className="flex space-x-2 mb-4 items-center">
-                  <span className="text-xs font-semibold text-gray-500 mr-2">Category (Optional):</span>
+                  <span className="text-xs font-semibold text-gray-500 mr-2">Category:</span>
                   {['Heavy', 'Medium', 'Light'].map(cat => (
                     <button
                       key={cat}
@@ -736,7 +735,7 @@ function App() {
                       onClick={() => setFormData({ ...formData, category: '' })}
                       className="text-xs text-red-500 font-semibold hover:underline ml-2"
                     >
-                      Clear Category
+                      Clear
                     </button>
                   )}
                 </div>
