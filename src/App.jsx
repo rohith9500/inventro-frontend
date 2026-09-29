@@ -169,8 +169,10 @@ function App() {
     e.preventDefault();
     try {
       const payload = {
-        ...formData,
+        name: formData.name,
         category: formData.category || '',
+        price: formData.price,
+        quantity: formData.quantity,
         userEmail
       };
 
@@ -504,7 +506,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍🗨️" : "👁️️"}
                 </button>
               </div>
 
@@ -566,7 +568,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍‍🗨️" : "👁️"}
                 </button>
               </div>
 
