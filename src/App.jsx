@@ -20,7 +20,7 @@ function App() {
   const [otpData, setOtpData] = useState({ otp: '', newPassword: '' });
 
   const [products, setProducts] = useState([]);
-  const [formData, setFormData] = useState({ name: '', category: 'Heavy', price: '', quantity: '' });
+  const [formData, setFormData] = useState({ name: '', category: '', price: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
@@ -98,7 +98,6 @@ function App() {
     }
   };
 
-  // Verify Email for Master PIN Reset
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (isOtpLoading) return;
@@ -127,7 +126,6 @@ function App() {
     }
   };
 
-  // Reset Password with Master PIN
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -185,7 +183,7 @@ function App() {
           body: JSON.stringify({ ...formData, userEmail })
         });
       }
-      setFormData({ name: '', category: 'Heavy', price: '', quantity: '' });
+      setFormData({ name: '', category: '', price: '', quantity: '' });
       fetchProducts();
     } catch (error) {
       console.error("Error saving product: ", error);
@@ -196,7 +194,7 @@ function App() {
     setEditingId(product._id);
     setFormData({
       name: product.name,
-      category: product.category || 'Heavy',
+      category: product.category || '',
       price: product.price,
       quantity: product.quantity
     });
@@ -229,7 +227,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: deletedProductCache.name,
-          category: deletedProductCache.category || 'Heavy',
+          category: deletedProductCache.category || '',
           price: deletedProductCache.price,
           quantity: deletedProductCache.quantity,
           userEmail
@@ -371,7 +369,7 @@ function App() {
             await fetch(`${BACKEND_URL}/api/products`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: p.name, category: p.category || 'Heavy', price: p.price, quantity: p.quantity, userEmail })
+              body: JSON.stringify({ name: p.name, category: p.category || '', price: p.price, quantity: p.quantity, userEmail })
             });
           }
           fetchProducts();
@@ -408,7 +406,7 @@ function App() {
       const pValue = Number(p.price) * Number(p.quantity);
       tableRows.push([
         p.name,
-        p.category || 'Heavy',
+        p.category || 'General',
         `Rs. ${p.price}`,
         p.quantity,
         `Rs. ${pValue.toLocaleString()}`
@@ -471,7 +469,6 @@ function App() {
             </div>
           )}
 
-          {/* Login Form */}
           {authMode === 'login' && (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
               <div>
@@ -522,7 +519,6 @@ function App() {
             </form>
           )}
 
-          {/* Signup Form */}
           {authMode === 'signup' && (
             <form onSubmit={handleAuthSubmit} className="space-y-4">
               <div>
@@ -575,7 +571,6 @@ function App() {
             </form>
           )}
 
-          {/* Forgot Password Flow with Master PIN */}
           {authMode === 'forgot' && (
             <div>
               {forgotStep === 1 ? (
@@ -723,17 +718,27 @@ function App() {
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
 
-                <div className="flex space-x-2 mb-4">
+                <div className="flex space-x-2 mb-4 items-center">
+                  <span className="text-xs font-semibold text-gray-500 mr-2">Category (Optional):</span>
                   {['Heavy', 'Medium', 'Light'].map(cat => (
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setFormData({ ...formData, category: cat })}
+                      onClick={() => setFormData({ ...formData, category: formData.category === cat ? '' : cat })}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${formData.category === cat ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                     >
-                      {cat} Pipe
+                      {cat} Pipe {formData.category === cat ? '✓' : ''}
                     </button>
                   ))}
+                  {formData.category && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, category: '' })}
+                      className="text-xs text-red-500 font-semibold hover:underline ml-2"
+                    >
+                      Clear Category
+                    </button>
+                  )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -783,9 +788,13 @@ function App() {
                           <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
                             <td className="px-6 py-4 text-center">
-                              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-                                {product.category || 'Heavy'}
-                              </span>
+                              {product.category ? (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                                  {product.category}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs italic">General</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-right font-medium">₹{product.price}</td>
                             <td className="px-6 py-4 text-center">
