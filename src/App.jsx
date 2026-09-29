@@ -13,7 +13,7 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [products, setProducts] = useState([]);
-  const [formData, setFormData] = useState({ name: '', price: '', quantity: '' });
+  const [formData, setFormData] = useState({ name: '', category: 'Heavy', price: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
@@ -27,6 +27,8 @@ function App() {
   const [deletedProductCache, setDeletedProductCache] = useState(null);
   const [undoToast, setUndoToast] = useState(false);
 
+  // Settings & Password Modal State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -117,7 +119,7 @@ function App() {
           body: JSON.stringify({ ...formData, userEmail })
         });
       }
-      setFormData({ name: '', price: '', quantity: '' });
+      setFormData({ name: '', category: 'Heavy', price: '', quantity: '' });
       fetchProducts();
     } catch (error) {
       console.error("Error saving product: ", error);
@@ -128,6 +130,7 @@ function App() {
     setEditingId(product._id);
     setFormData({
       name: product.name,
+      category: product.category || 'Heavy',
       price: product.price,
       quantity: product.quantity
     });
@@ -160,6 +163,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: deletedProductCache.name,
+          category: deletedProductCache.category || 'Heavy',
           price: deletedProductCache.price,
           quantity: deletedProductCache.quantity,
           userEmail
@@ -224,7 +228,6 @@ function App() {
     }
   };
 
-  // Delete specific history log and revert quantity
   const handleDeleteHistoryLog = async (productId, historyId) => {
     if (!window.confirm("Do you want to delete this history log and revert the stock quantity?")) {
       return;
@@ -265,12 +268,20 @@ function App() {
       }
       setPasswordMsg("Password changed successfully!");
       setPasswordData({ currentPassword: '', newPassword: '' });
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordMsg('');
+      }, 1500);
     } catch (err) {
       setPasswordMsg("Network error.");
     }
   };
 
+  // Safe Export with Confirmation
   const handleExportData = () => {
+    if (!window.confirm("Are you sure you want to download the JSON backup of your inventory?")) {
+      return;
+    }
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
@@ -281,6 +292,10 @@ function App() {
   };
 
   const handleImportData = (e) => {
+    if (!window.confirm("Are you sure you want to import data from this backup file?")) {
+      e.target.value = '';
+      return;
+    }
     const fileReader = new FileReader();
     if (e.target.files[0]) {
       fileReader.readAsText(e.target.files[0], "UTF-8");
@@ -291,7 +306,7 @@ function App() {
             await fetch(`${BACKEND_URL}/api/products`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: p.name, price: p.price, quantity: p.quantity, userEmail })
+              body: JSON.stringify({ name: p.name, category: p.category || 'Heavy', price: p.price, quantity: p.quantity, userEmail })
             });
           }
           fetchProducts();
@@ -303,7 +318,11 @@ function App() {
     }
   };
 
+  // Safe PDF Download with Confirmation
   const handleDownloadPDF = () => {
+    if (!window.confirm("Do you want to download the full inventory PDF report?")) {
+      return;
+    }
     const doc = new jsPDF();
     
     doc.setFontSize(20);
@@ -318,13 +337,14 @@ function App() {
     const totalVal = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
     doc.text(`Total Products: ${products.length}   |   Total Stock Value: Rs. ${totalVal.toLocaleString()}`, 14, 40);
 
-    const tableColumn = ["Product Name", "Price (Rs.)", "Stock Quantity", "Total Value (Rs.)"];
+    const tableColumn = ["Product Name", "Category", "Price (Rs.)", "Stock Quantity", "Total Value (Rs.)"];
     const tableRows = [];
 
     products.forEach(p => {
       const pValue = Number(p.price) * Number(p.quantity);
       tableRows.push([
         p.name,
+        p.category || 'Heavy',
         `Rs. ${p.price}`,
         p.quantity,
         `Rs. ${pValue.toLocaleString()}`
@@ -522,9 +542,23 @@ function App() {
                 <h2 className="text-lg font-bold mb-4 text-gray-800">
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
+
+                <div className="flex space-x-2 mb-4">
+                  {['Heavy', 'Medium', 'Light'].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, category: cat })}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${formData.category === cat ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {cat} Pipe
+                    </button>
+                  ))}
+                </div>
+
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <input type="text" name="name" placeholder="Product Name" value={formData.name} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
-                  <input type="number" name="price" placeholder="Price (₹)" value={formData.price} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
+                  <input type="text" name="name" placeholder="Product Name (e.g. 4-inch PVC)" value={formData.name} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
+                  <input type="number" name="price" placeholder="Current Price (₹)" value={formData.price} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
                   <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required className="border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full" />
                   <button type="submit" className={`md:col-span-3 text-white py-2.5 rounded-lg font-medium transition-colors mt-2 ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                     {editingId ? 'Update Product' : '+ Save Product'}
@@ -556,6 +590,7 @@ function App() {
                     <thead className="uppercase tracking-wider border-b-2 border-gray-100 text-gray-500 bg-gray-50">
                       <tr>
                         <th className="px-6 py-4">Product Name</th>
+                        <th className="px-6 py-4 text-center">Category</th>
                         <th className="px-6 py-4 text-right">Price</th>
                         <th className="px-6 py-4 text-center">Stock</th>
                         <th className="px-6 py-4 text-center">Stock Management</th>
@@ -567,6 +602,11 @@ function App() {
                         return (
                           <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                                {product.category || 'Heavy'}
+                              </span>
+                            </td>
                             <td className="px-6 py-4 text-right font-medium">₹{product.price}</td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-md text-xs font-bold ${product.quantity <= 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -594,7 +634,7 @@ function App() {
                       })}
                       {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                             No products found.
                           </td>
                         </tr>
@@ -644,10 +684,9 @@ function App() {
                           <span className="text-gray-400 font-medium">{new Date(log.date).toLocaleString()}</span>
                           <button 
                             onClick={() => handleDeleteHistoryLog(log.productId, log._id)}
-                            className="text-red-500 hover:text-red-700 font-bold text-sm"
-                            title="Delete log & revert stock"
+                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-colors"
                           >
-                            ×
+                            Revert
                           </button>
                         </div>
                       </div>
@@ -660,38 +699,18 @@ function App() {
             </div>
           ) : (
             <div className="max-w-xl space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-lg mb-4 text-gray-800">Change Password</h3>
-                {passwordMsg && (
-                  <div className={`p-3 rounded-lg text-xs font-medium mb-4 ${passwordMsg.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                    {passwordMsg}
-                  </div>
-                )}
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Current Password</label>
-                    <input 
-                      type="password" 
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      required
-                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
-                    <input 
-                      type="password" 
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      required
-                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-                    Update Password
-                  </button>
-                </form>
+              {/* Settings Tab with Button to Open Password Modal */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-base text-gray-800">Change Account Password</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Update your password securely using current credentials.</p>
+                </div>
+                <button 
+                  onClick={() => { setShowPasswordModal(true); setPasswordMsg(''); }}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                >
+                  Change Password 🔒
+                </button>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
@@ -710,6 +729,58 @@ function App() {
           )}
         </div>
 
+        {/* Change Password Modal */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+                <h3 className="font-bold text-lg">Change Password</h3>
+                <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-white text-xl font-bold">×</button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {passwordMsg && (
+                  <div className={`p-3 rounded-lg text-xs font-medium text-center ${passwordMsg.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                    {passwordMsg}
+                  </div>
+                )}
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Current Password</label>
+                    <input 
+                      type="password" 
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      required
+                      placeholder="••••••••"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+                    <input 
+                      type="password" 
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      required
+                      placeholder="••••••••"
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex space-x-2 pt-2">
+                    <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
+                      Update Password
+                    </button>
+                    <button type="button" onClick={() => setShowPasswordModal(false)} className="px-4 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
         {undoToast && (
           <div className="absolute bottom-6 right-6 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-4 z-50">
             <span className="text-sm">Product deleted successfully!</span>
@@ -719,7 +790,7 @@ function App() {
           </div>
         )}
 
-        {/* Manage Stock Modal with Revert Option */}
+        {/* Manage Stock Modal */}
         {activeModalProductId && activeProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
