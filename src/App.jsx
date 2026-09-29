@@ -98,7 +98,7 @@ function App() {
     }
   };
 
-  // Send OTP handler with loading state
+  // Verify Email for Master PIN Reset
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (isOtpLoading) return;
@@ -114,11 +114,11 @@ function App() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setAuthError(data.message || "Failed to send OTP");
+        setAuthError(data.message || "Email verification failed");
         setIsOtpLoading(false);
         return;
       }
-      setAuthSuccess("OTP sent successfully to your email!");
+      setAuthSuccess("Email verified! Enter Master PIN (123456) & new password.");
       setForgotStep(2);
     } catch (err) {
       setAuthError("Network error. Please try again.");
@@ -127,7 +127,7 @@ function App() {
     }
   };
 
-  // Reset Password handler
+  // Reset Password with Master PIN
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -565,7 +565,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
                 </button>
               </div>
 
@@ -575,7 +575,7 @@ function App() {
             </form>
           )}
 
-          {/* Forgot Password Flow */}
+          {/* Forgot Password Flow with Master PIN */}
           {authMode === 'forgot' && (
             <div>
               {forgotStep === 1 ? (
@@ -596,13 +596,16 @@ function App() {
                     disabled={isOtpLoading}
                     className={`w-full text-white py-2.5 rounded-lg font-medium text-sm transition-colors ${isOtpLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                   >
-                    {isOtpLoading ? 'Sending OTP (Please wait)...' : 'Send OTP'}
+                    {isOtpLoading ? 'Verifying...' : 'Next'}
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="bg-blue-50 text-blue-700 p-2.5 rounded-lg text-xs font-medium text-center">
+                    Master PIN is: <b>123456</b>
+                  </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Enter 6-digit OTP</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Enter Master PIN (123456)</label>
                     <input 
                       type="text" 
                       placeholder="123456" 
@@ -624,7 +627,7 @@ function App() {
                     />
                   </div>
                   <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-colors">
-                    Verify & Reset Password
+                    Reset Password
                   </button>
                 </form>
               )}
