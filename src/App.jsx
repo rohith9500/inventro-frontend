@@ -7,10 +7,16 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [userEmail, setUserEmail] = useState(localStorage.getItem('email') || '');
   const [username, setUsername] = useState(localStorage.getItem('username') || 'Admin');
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'forgot'
   const [authData, setAuthData] = useState({ username: '', email: '', password: '' });
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Forgot Password specific states
+  const [forgotStep, setForgotStep] = useState(1); 
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpData, setOtpData] = useState({ otp: '', newPassword: '' });
 
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState({ name: '', category: 'Heavy', price: '', quantity: '' });
@@ -27,7 +33,6 @@ function App() {
   const [deletedProductCache, setDeletedProductCache] = useState(null);
   const [undoToast, setUndoToast] = useState(false);
 
-  // Settings & Password Modal State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
@@ -59,6 +64,7 @@ function App() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
     const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
 
     try {
@@ -88,6 +94,59 @@ function App() {
       }
     } catch (err) {
       setAuthError("Network error. Please try again.");
+    }
+  };
+
+  // Send OTP handler
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.message || "Failed to send OTP");
+        return;
+      }
+      setAuthSuccess("OTP sent successfully to your email!");
+      setForgotStep(2);
+    } catch (err) {
+      setAuthError("Network error.");
+    }
+  };
+
+  // Reset Password handler
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotEmail,
+          otp: otpData.otp,
+          newPassword: otpData.newPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.message || "Failed to reset password");
+        return;
+      }
+      alert(data.message);
+      setAuthMode('login');
+      setForgotStep(1);
+      setForgotEmail('');
+      setOtpData({ otp: '', newPassword: '' });
+    } catch (err) {
+      setAuthError("Network error.");
     }
   };
 
@@ -277,7 +336,6 @@ function App() {
     }
   };
 
-  // Safe Export with Confirmation
   const handleExportData = () => {
     if (!window.confirm("Are you sure you want to download the JSON backup of your inventory?")) {
       return;
@@ -318,7 +376,6 @@ function App() {
     }
   };
 
-  // Safe PDF Download with Confirmation
   const handleDownloadPDF = () => {
     if (!window.confirm("Do you want to download the full inventory PDF report?")) {
       return;
@@ -392,7 +449,7 @@ function App() {
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-indigo-600">📦 VKN INVENTORY</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {authMode === 'login' ? 'Login to your account' : 'Create a new account'}
+              {authMode === 'login' ? 'Login to your account' : authMode === 'signup' ? 'Create a new account' : 'Reset your password'}
             </p>
           </div>
 
@@ -401,9 +458,66 @@ function App() {
               {authError}
             </div>
           )}
+          {authSuccess && (
+            <div className="bg-green-50 text-green-700 p-3 rounded-lg text-xs font-medium mb-4 text-center">
+              {authSuccess}
+            </div>
+          )}
 
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            {authMode === 'signup' && (
+          {/* Login Form */}
+          {authMode === 'login' && (
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  name="email"
+                  placeholder="rohitha.24csc@kongu.edu" 
+                  value={authData.email}
+                  onChange={handleAuthChange}
+                  required
+                  className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="relative">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  name="password"
+                  placeholder="••••••••" 
+                  value={authData.password}
+                  onChange={handleAuthChange}
+                  required
+                  className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
+                >
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                </button>
+              </div>
+
+              <div className="flex justify-between items-center text-xs">
+                <button 
+                  type="button" 
+                  onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccess(''); setForgotStep(1); }} 
+                  className="text-indigo-600 font-semibold hover:underline"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
+              <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+                Login
+              </button>
+            </form>
+          )}
+
+          {/* Signup Form */}
+          {authMode === 'signup' && (
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Username</label>
                 <input 
@@ -416,56 +530,108 @@ function App() {
                   className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-            )}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
-              <input 
-                type="email" 
-                name="email"
-                placeholder="rohitha.24csc@kongu.edu" 
-                value={authData.email}
-                onChange={handleAuthChange}
-                required
-                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div className="relative">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
-              <input 
-                type={showPassword ? "text" : "password"} 
-                name="password"
-                placeholder="••••••••" 
-                value={authData.password}
-                onChange={handleAuthChange}
-                required
-                className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
-              />
-              <button 
-                type="button" 
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
-              >
-                {showPassword ? "👁️‍🗨️" : "👁️"}
-              </button>
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  name="email"
+                  placeholder="rohitha.24csc@kongu.edu" 
+                  value={authData.email}
+                  onChange={handleAuthChange}
+                  required
+                  className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="relative">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  name="password"
+                  placeholder="••••••••" 
+                  value={authData.password}
+                  onChange={handleAuthChange}
+                  required
+                  className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
+                >
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                </button>
+              </div>
 
-            <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
-              {authMode === 'login' ? 'Login' : 'Sign Up'}
-            </button>
-          </form>
+              <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+                Sign Up
+              </button>
+            </form>
+          )}
+
+          {/* Forgot Password Flow */}
+          {authMode === 'forgot' && (
+            <div>
+              {forgotStep === 1 ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Enter your Registered Email</label>
+                    <input 
+                      type="email" 
+                      placeholder="rohitha.24csc@kongu.edu" 
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+                    Send OTP
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Enter 6-digit OTP</label>
+                    <input 
+                      type="text" 
+                      placeholder="123456" 
+                      value={otpData.otp}
+                      onChange={(e) => setOtpData({ ...otpData, otp: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-center tracking-widest font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      value={otpData.newPassword}
+                      onChange={(e) => setOtpData({ ...otpData, newPassword: e.target.value })}
+                      required
+                      className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-emerald-700 transition-colors">
+                    Verify & Reset Password
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 text-center text-xs text-gray-600">
             {authMode === 'login' ? (
               <p>
                 Don't have an account?{' '}
-                <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className="text-indigo-600 font-bold hover:underline">
+                <button onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthSuccess(''); }} className="text-indigo-600 font-bold hover:underline">
                   Sign Up
                 </button>
               </p>
             ) : (
               <p>
-                Already have an account?{' '}
-                <button onClick={() => { setAuthMode('login'); setAuthError(''); }} className="text-indigo-600 font-bold hover:underline">
+                Remember your password?{' '}
+                <button onClick={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }} className="text-indigo-600 font-bold hover:underline">
                   Login
                 </button>
               </p>
@@ -699,7 +865,6 @@ function App() {
             </div>
           ) : (
             <div className="max-w-xl space-y-6">
-              {/* Settings Tab with Button to Open Password Modal */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-base text-gray-800">Change Account Password</h3>
