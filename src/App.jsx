@@ -12,6 +12,7 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isOtpLoading, setIsOtpLoading] = useState(false);
 
   // Forgot Password specific states
   const [forgotStep, setForgotStep] = useState(1); 
@@ -97,11 +98,14 @@ function App() {
     }
   };
 
-  // Send OTP handler
+  // Send OTP handler with loading state
   const handleSendOtp = async (e) => {
     e.preventDefault();
+    if (isOtpLoading) return;
     setAuthError('');
     setAuthSuccess('');
+    setIsOtpLoading(true);
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
         method: 'POST',
@@ -111,12 +115,15 @@ function App() {
       const data = await res.json();
       if (!res.ok) {
         setAuthError(data.message || "Failed to send OTP");
+        setIsOtpLoading(false);
         return;
       }
       setAuthSuccess("OTP sent successfully to your email!");
       setForgotStep(2);
     } catch (err) {
-      setAuthError("Network error.");
+      setAuthError("Network error. Please try again.");
+    } finally {
+      setIsOtpLoading(false);
     }
   };
 
@@ -558,7 +565,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍‍🗨️" : "👁️"}
                 </button>
               </div>
 
@@ -584,8 +591,12 @@ function App() {
                       className="w-full border border-gray-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
-                    Send OTP
+                  <button 
+                    type="submit" 
+                    disabled={isOtpLoading}
+                    className={`w-full text-white py-2.5 rounded-lg font-medium text-sm transition-colors ${isOtpLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                  >
+                    {isOtpLoading ? 'Sending OTP (Please wait)...' : 'Send OTP'}
                   </button>
                 </form>
               ) : (
