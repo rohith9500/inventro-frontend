@@ -568,7 +568,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
                 </button>
               </div>
 
@@ -731,7 +731,7 @@ function App() {
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setFormData({ ...formData, category: formData.category === cat ? '' : cat })}
+                      onClick={() => setFormData({ ...formData, category: cat })}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${formData.category === cat ? 'bg-indigo-600 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                     >
                       {cat} Pipe {formData.category === cat ? '✓' : ''}
