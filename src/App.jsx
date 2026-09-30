@@ -506,7 +506,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍🗨️" : "👁️️"}
+                  {showPassword ? "👁️‍🗨️" : "👁️"}
                 </button>
               </div>
 
@@ -568,7 +568,7 @@ function App() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-500 text-sm font-bold"
                 >
-                  {showPassword ? "👁️‍🗨️" : "👁️"}
+                  {showPassword ? "👁️‍🗨️️" : "👁️"}
                 </button>
               </div>
 
