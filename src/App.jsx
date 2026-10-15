@@ -388,8 +388,8 @@ function App() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    if (!window.confirm("Do you want to download the full inventory PDF report?")) {
+const handleDownloadPDF = () => {
+    if (!window.confirm("Do you want to download the inventory PDF report?")) {
       return;
     }
     const doc = new jsPDF();
@@ -403,20 +403,18 @@ function App() {
     doc.text(`Generated Account: ${userEmail}`, 14, 28);
     doc.text(`Date: ${new Date().toLocaleString()}`, 14, 34);
 
-    const totalVal = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
-    doc.text(`Total Products: ${products.length}   |   Total Stock Value: Rs. ${totalVal.toLocaleString()}`, 14, 40);
+    // Removed total stock value from the header text
+    doc.text(`Total Products: ${products.length}`, 14, 40); 
 
-    const tableColumn = ["Product Name", "Category", "Price (Rs.)", "Stock Quantity", "Total Value (Rs.)"];
+    // Updated columns without Price and Total Value
+    const tableColumn = ["Product Name", "Category", "Stock Quantity"];
     const tableRows = [];
 
     products.forEach(p => {
-      const pValue = Number(p.price) * Number(p.quantity);
       tableRows.push([
         p.name,
         p.category || 'General',
-        `Rs. ${p.price}`,
-        p.quantity,
-        `Rs. ${pValue.toLocaleString()}`
+        p.quantity
       ]);
     });
 
