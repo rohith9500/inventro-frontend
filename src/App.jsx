@@ -17,7 +17,7 @@ function App() {
   const [otpData, setOtpData] = useState({ otp: '', newPassword: '' });
 
   const [products, setProducts] = useState([]);
-  const [formData, setFormData] = useState({ name: '', category: '', price: '', quantity: '' });
+  const [formData, setFormData] = useState({ name: '', quantity: '' });
   const [editingId, setEditingId] = useState(null); 
   const [activeTab, setActiveTab] = useState('products');
 
@@ -34,7 +34,6 @@ function App() {
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '' });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // New States for Mobile Menu & Modern Snackbar
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ show: false, message: '', type: 'success' });
 
@@ -171,8 +170,6 @@ function App() {
     try {
       const payload = {
         name: formData.name,
-        category: formData.category || '',
-        price: formData.price,
         quantity: formData.quantity,
         userEmail
       };
@@ -193,7 +190,7 @@ function App() {
         });
         showSnack("Product added successfully!");
       }
-      setFormData({ name: '', category: '', price: '', quantity: '' });
+      setFormData({ name: '', quantity: '' });
       fetchProducts();
     } catch (error) {
       showSnack("Error saving product", "error");
@@ -204,8 +201,6 @@ function App() {
     setEditingId(product._id);
     setFormData({
       name: product.name,
-      category: product.category || '',
-      price: product.price,
       quantity: product.quantity
     });
     if (formRef.current) {
@@ -236,8 +231,6 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: deletedProductCache.name,
-          category: deletedProductCache.category || '',
-          price: deletedProductCache.price,
           quantity: deletedProductCache.quantity,
           userEmail
         })
@@ -379,7 +372,7 @@ function App() {
             await fetch(`${BACKEND_URL}/api/products`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: p.name, category: p.category || '', price: p.price, quantity: p.quantity, userEmail })
+              body: JSON.stringify({ name: p.name, quantity: p.quantity, userEmail })
             });
           }
           fetchProducts();
@@ -405,13 +398,12 @@ function App() {
     doc.text(`Date: ${new Date().toLocaleString()}`, 14, 34);
     doc.text(`Total Products: ${products.length}`, 14, 40); 
 
-    const tableColumn = ["Product Name", "Category", "Stock Quantity"];
+    const tableColumn = ["Product Name", "Stock Quantity"];
     const tableRows = [];
 
     products.forEach(p => {
       tableRows.push([
         p.name,
-        p.category || 'General',
         p.quantity
       ]);
     });
@@ -434,7 +426,6 @@ function App() {
   );
 
   const totalProductsCount = products.length;
-  const totalStockValue = products.reduce((acc, curr) => acc + (Number(curr.price) * Number(curr.quantity)), 0);
   const activeProduct = products.find(p => p._id === activeModalProductId);
 
   const allHistoryLogs = [];
@@ -663,26 +654,10 @@ function App() {
                   {editingId ? 'Edit Product' : 'Add New Product'}
                 </h2>
 
-                <div className="flex flex-wrap gap-2 mb-4 items-center">
-                  <span className="text-xs font-semibold text-gray-500 mr-2">Category (Optional):</span>
-                  {['Heavy', 'Medium', 'Light'].map(cat => (
-                    <button
-                      key={cat} type="button" onClick={() => setFormData({ ...formData, category: cat })}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.category === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      {cat} Pipe {formData.category === cat ? '✓' : ''}
-                    </button>
-                  ))}
-                  {formData.category && (
-                    <button type="button" onClick={() => setFormData({ ...formData, category: '' })} className="text-xs text-red-500 font-semibold hover:underline ml-2">Clear</button>
-                  )}
-                </div>
-
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input type="text" name="name" placeholder="Product Name (e.g. 4-inch PVC)" value={formData.name} onChange={handleChange} required className="border border-gray-200 p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-gray-50 focus:bg-white transition-all" />
-                  <input type="number" name="price" placeholder="Current Price (₹)" value={formData.price} onChange={handleChange} required className="border border-gray-200 p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-gray-50 focus:bg-white transition-all" />
                   <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required className="border border-gray-200 p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-gray-50 focus:bg-white transition-all" />
-                  <button type="submit" className={`md:col-span-3 text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.99] mt-2 ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30'}`}>
+                  <button type="submit" className={`md:col-span-2 text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.99] mt-2 ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30'}`}>
                     {editingId ? 'Update Product' : '+ Save Product'}
                   </button>
                 </form>
@@ -705,8 +680,6 @@ function App() {
                     <thead className="uppercase tracking-wider border-b border-gray-100 text-gray-500 bg-gray-50/80 text-[10px] font-bold">
                       <tr>
                         <th className="px-6 py-4">Product Name</th>
-                        <th className="px-6 py-4 text-center">Category</th>
-                        <th className="px-6 py-4 text-right">Price</th>
                         <th className="px-6 py-4 text-center">Stock</th>
                         <th className="px-6 py-4 text-center">Manage</th>
                         <th className="px-6 py-4 text-center">Actions</th>
@@ -716,16 +689,6 @@ function App() {
                       {filteredProducts.map(product => (
                         <tr key={product._id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 font-bold text-gray-900">{product.name}</td>
-                          <td className="px-6 py-4 text-center">
-                            {product.category ? (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
-                                {product.category}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 text-[10px] italic">General</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right font-semibold text-gray-700">₹{product.price}</td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-3 py-1 rounded-lg text-xs font-bold ${product.quantity <= 5 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                               {product.quantity}
@@ -744,7 +707,7 @@ function App() {
                       ))}
                       {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-gray-400 font-medium">
+                          <td colSpan="4" className="px-6 py-12 text-center text-gray-400 font-medium">
                             No products found. Add some inventory!
                           </td>
                         </tr>
@@ -757,20 +720,13 @@ function App() {
             </div>
           ) : activeTab === 'dashboard' ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                  <div className="bg-white p-6 rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.03)] border border-gray-100 flex items-center justify-between">
                    <div>
                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Products</p>
                      <p className="text-4xl font-extrabold text-gray-900 mt-2">{totalProductsCount}</p>
                    </div>
                    <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl shadow-inner">📦</div>
-                 </div>
-                 <div className="bg-white p-6 rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.03)] border border-gray-100 flex items-center justify-between">
-                   <div>
-                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Stock Value</p>
-                     <p className="text-4xl font-extrabold text-gray-900 mt-2">₹{totalStockValue.toLocaleString()}</p>
-                   </div>
-                   <div className="h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-2xl shadow-inner">💰</div>
                  </div>
               </div>
 
