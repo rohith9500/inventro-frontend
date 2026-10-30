@@ -734,23 +734,28 @@ function App() {
                 <h3 className="font-bold text-sm text-gray-800 mb-4 uppercase tracking-wider">⚡ Recent Activities</h3>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                   {allHistoryLogs.length > 0 ? (
-                    allHistoryLogs.map((log, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-gray-50/80 p-4 rounded-xl border border-gray-100 text-sm hover:shadow-sm transition-all">
-                        <div>
-                          <span className="font-extrabold text-gray-900">{log.productName}</span> 
-                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${log.quantityReduced < 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                            {log.quantityReduced < 0 ? `+${Math.abs(log.quantityReduced)}` : `-${log.quantityReduced}`}
-                          </span>
-                          <p className="text-xs text-gray-500 mt-1">Party: <b>{log.buyerName}</b></p>
+                    allHistoryLogs.map((log, idx) => {
+                      const isReduced = log.quantityReduced > 0;
+                      return (
+                        <div key={idx} className="flex justify-between items-center bg-gray-50/80 p-4 rounded-xl border border-gray-100 text-sm hover:shadow-sm transition-all">
+                          <div>
+                            <span className="font-extrabold text-gray-900">{log.productName}</span> 
+                            <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${isReduced ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                              {isReduced ? `-${log.quantityReduced}` : `+${Math.abs(log.quantityReduced)}`} units
+                            </span>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {isReduced ? 'Sold to' : 'Added from'}: <b>{log.buyerName}</b>
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className="text-[10px] text-gray-400 font-medium">{new Date(log.date).toLocaleString()}</span>
+                            <button onClick={() => handleDeleteHistoryLog(log.productId, log._id)} className="bg-white border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 px-3 py-1 rounded-lg text-[10px] font-bold transition-all shadow-sm">
+                              Revert Action
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <span className="text-[10px] text-gray-400 font-medium">{new Date(log.date).toLocaleString()}</span>
-                          <button onClick={() => handleDeleteHistoryLog(log.productId, log._id)} className="bg-white border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 px-3 py-1 rounded-lg text-[10px] font-bold transition-all shadow-sm">
-                            Revert Action
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="text-center py-10">
                       <p className="text-sm text-gray-400 font-medium">No stock activities recorded yet.</p>
@@ -794,7 +799,7 @@ function App() {
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
                 <h3 className="font-extrabold text-lg text-gray-900">Change Password</h3>
-                <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-900 text-xl">✕</button>
+                <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-gray-905 text-xl">✕</button>
               </div>
               <div className="p-6">
                 <form onSubmit={handleChangePassword} className="space-y-5">
@@ -830,42 +835,74 @@ function App() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
               <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
-                <h3 className="font-extrabold text-lg text-gray-900 truncate">Stock: {activeProduct.name}</h3>
+                <h3 className="font-extrabold text-lg text-gray-900 truncate">Manage Stock: {activeProduct.name}</h3>
                 <button onClick={closeManageModal} className="text-gray-400 hover:text-gray-900 text-xl">✕</button>
               </div>
               <div className="p-6 space-y-5">
                 <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex justify-between items-center">
-                  <span className="text-xs text-indigo-900 font-bold uppercase tracking-wider">Current Stock</span>
+                  <span className="text-xs text-indigo-900 font-bold uppercase tracking-wider">Current Stock Quantity:</span>
                   <span className="font-extrabold text-2xl text-indigo-600">{activeProduct.quantity}</span>
                 </div>
 
                 <div className="flex bg-gray-100 p-1.5 rounded-xl">
-                  <button type="button" onClick={() => { setStockActionType('reduce'); setStockInputData({ qty: '', partyName: '' }); }} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${stockActionType === 'reduce' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
-                    📉 Reduce (Sell)
+                  <button type="button" onClick={() => { setStockActionType('reduce'); setStockInputData({ qty: '', partyName: '' }); }} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${stockActionType === 'reduce' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
+                    📉 Reduce Stock (Sell)
                   </button>
-                  <button type="button" onClick={() => { setStockActionType('add'); setStockInputData({ qty: '', partyName: '' }); }} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${stockActionType === 'add' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
-                    📈 Add (Purchase)
+                  <button type="button" onClick={() => { setStockActionType('add'); setStockInputData({ qty: '', partyName: '' }); }} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${stockActionType === 'add' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>
+                    📈 Add Stock (Purchase)
                   </button>
                 </div>
 
                 <form onSubmit={(e) => handleStockTransaction(e, activeProduct._id)} className="space-y-4 pt-2">
                   <div className="relative">
-                    <input type="number" id="qty" placeholder=" " value={stockInputData.qty} onChange={(e) => setStockInputData({ ...stockInputData, qty: e.target.value })} required className="peer w-full border-b-2 border-gray-200 bg-transparent py-2 text-sm text-gray-900 focus:border-indigo-600 focus:outline-none transition-colors" />
+                    <input type="number" id="qty" placeholder="e.g. 5" value={stockInputData.qty} onChange={(e) => setStockInputData({ ...stockInputData, qty: e.target.value })} required className="peer w-full border-b-2 border-gray-200 bg-transparent py-2 text-sm text-gray-900 focus:border-indigo-600 focus:outline-none transition-colors" />
                     <label htmlFor="qty" className="absolute left-0 -top-3.5 text-xs font-semibold text-gray-500 transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-placeholder-shown:font-normal peer-focus:-top-3.5 peer-focus:text-xs peer-focus:font-semibold peer-focus:text-indigo-600 cursor-text">
                       {stockActionType === 'reduce' ? 'Quantity to Reduce' : 'Quantity to Add'}
                     </label>
                   </div>
                   <div className="relative mt-4">
-                    <input type="text" id="party" placeholder=" " value={stockInputData.partyName} onChange={(e) => setStockInputData({ ...stockInputData, partyName: e.target.value })} required className="peer w-full border-b-2 border-gray-200 bg-transparent py-2 text-sm text-gray-900 focus:border-indigo-600 focus:outline-none transition-colors" />
+                    <input type="text" id="party" placeholder={stockActionType === 'reduce' ? 'e.g. Rahul' : 'e.g. ABC Supplier'} value={stockInputData.partyName} onChange={(e) => setStockInputData({ ...stockInputData, partyName: e.target.value })} required className="peer w-full border-b-2 border-gray-200 bg-transparent py-2 text-sm text-gray-900 focus:border-indigo-600 focus:outline-none transition-colors" />
                     <label htmlFor="party" className="absolute left-0 -top-3.5 text-xs font-semibold text-gray-500 transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-placeholder-shown:font-normal peer-focus:-top-3.5 peer-focus:text-xs peer-focus:font-semibold peer-focus:text-indigo-600 cursor-text">
                       {stockActionType === 'reduce' ? 'Buyer Name' : 'Supplier Name'}
                     </label>
                   </div>
                   
                   <button type="submit" disabled={isSubmitting} className={`w-full text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] mt-4 ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : stockActionType === 'reduce' ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30' : 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'}`}>
-                    {isSubmitting ? 'Processing...' : stockActionType === 'reduce' ? 'Confirm Reduce' : 'Confirm Add'}
+                    {isSubmitting ? 'Processing...' : stockActionType === 'reduce' ? 'Confirm & Reduce Stock' : 'Confirm & Add Stock'}
                   </button>
                 </form>
+
+                <div className="mt-4 pt-2 border-t border-gray-100">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-500 mb-2">Stock History Logs (Recent First)</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {activeProduct.history && activeProduct.history.length > 0 ? (
+                      [...activeProduct.history].reverse().map((h, idx) => {
+                        const isReduced = h.quantityReduced > 0;
+                        return (
+                          <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs">
+                            <div>
+                              <span className={`font-bold ${isReduced ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {isReduced ? `-${h.quantityReduced}` : `+${Math.abs(h.quantityReduced)}`} units
+                              </span>
+                              <span className="text-gray-500 ml-1">({isReduced ? 'Sold to' : 'Added from'} {h.buyerName})</span>
+                              <div className="text-[10px] text-gray-400">{new Date(h.date).toLocaleString()}</div>
+                            </div>
+                            <button onClick={() => handleDeleteHistoryLog(activeProduct._id, h._id)} className="bg-white border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 px-2 py-1 rounded text-[10px] font-bold transition-all shadow-sm">
+                              Revert
+                            </button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs text-gray-400 text-center py-2">No history records yet.</p>
+                    )}
+                  </div>
+                </div>
+
+                <button onClick={closeManageModal} className="w-full bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors mt-2">
+                  Close Modal
+                </button>
+
               </div>
             </div>
           </div>
